@@ -15,6 +15,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 import numpy as np
 from collections.abc import Iterable
 from pandas_model import PandasModel
+from sklearn.ensemble import RandomForestClassifier
 
 scriptDir = dirname(realpath(__file__))
 From_Main, _ = loadUiType(join(dirname(__file__), "Main.ui"))#преообразовыввает ui в py
@@ -28,6 +29,8 @@ class MainWindow(QWidget, From_Main):
     
         
         self.activation_ComboBox.addItems(["relu", "sigmoid", "softmax"])#селект
+        self.activation_ComboBox_2.addItems(["relu", "sigmoid", "softmax"])#селект
+        self.activation_ComboBox_3.addItems(["relu", "sigmoid", "softmax"])#селект
 
         
         self.openFileButton.clicked.connect(self.OpenFile)
@@ -35,10 +38,7 @@ class MainWindow(QWidget, From_Main):
         self.trainingButton.clicked.connect(self.Training)
         self.trainingButton_2.clicked.connect(self.modelLoss)
         self.trainingButton_3.clicked.connect(self.modelAccuracy)
-        self.pushButton.clicked.connect(self.saveResult)
-
-
-    
+        self.pushButton.clicked.connect(self.saveResult)    
 
     def OpenFile(self):
         # Чтение SCV файла
@@ -54,6 +54,25 @@ class MainWindow(QWidget, From_Main):
         self.trainColumn.addItems(self.df.columns)
 
     def Training(self):
+        if self.trainingMethod.currentText() == "RandomForest":
+            self.X = pd.get_dummies(self.df.drop([self.trainColumn.currentText()], axis=1))
+            self.Y = self.df[self.trainColumn.currentText()]
+            self.X_train, self.X_val_and_test, self.Y_train, self.Y_val_and_test = train_test_split(self.X,self.Y,test_size = self.testSizeValue.value()/100,train_size = self.trainDataSize.value()/100)
+            model = RandomForestClassifier(n_estimators = self.trees.value(), max_depth=self.max_depth.value(), random_state=30)
+            model.fit(self.X_train, self.Y_train)
+            self.Y_pred = model.predict(self.X_val_and_test)
+            self.Y_pred = self.Y_pred.flatten()
+            print("RF pref =")
+            print(self.Y_pred)
+        
+            rowPosition = self.predictedTable.rowCount()
+            for idx, val in enumerate(self.Y_pred):
+                print(idx, val)
+                self.predictedTable.insertRow(rowPosition+idx)
+                self.predictedTable.setItem(rowPosition+idx , 0 ,QTableWidgetItem(f'{val}'))
+        else: self.notRandomForest()
+    
+    def notRandomForest(self): 
         if self.trainingMethod.currentText() == 'ADAM':
             tf.keras.optimizers.Adam(
                 learning_rate=self.learningRate_DoubleSpinBox.value(),
@@ -115,17 +134,17 @@ class MainWindow(QWidget, From_Main):
 
         self.model.add(Dense(
                 units=self.neuronsNumberSecondLayer_SpinBox.value(),
-                activation = self.activation_ComboBox.currentText()
+                activation = self.activation_ComboBox_2.currentText()
             ))
 
         self.model.add(Dense(
                 units=self.neuronsNumberOutputLayer_SpinBox.value(),
-                activation = self.activation_ComboBox.currentText()))
+                activation = self.activation_ComboBox_3.currentText()))
 
         self.model.compile(
             optimizer = self.trainingMethod.currentText(),
             loss = 'binary_crossentropy',
-            metrics = ['accuracy']
+            metrics = 'accuracy'
         )
 
         self.trainHist = self.model.fit(
@@ -137,11 +156,23 @@ class MainWindow(QWidget, From_Main):
         )
 
         self.model.evaluate(self.X_train, self.Y_train)
-        self.Y_pred = self.model.predict(self.X_train)
+        self.Y_pred = self.model.predict(self.X_val_and_test)
+        self.Y_pred = self.Y_pred.flatten()
+        print(self.Y_pred)
+    
+        rowPosition = self.predictedTable.rowCount()
+        for idx, val in enumerate(self.Y_pred):
+            print(idx, val)
+            self.predictedTable.insertRow(rowPosition+idx)
+            self.predictedTable.setItem(rowPosition+idx , 0 ,QTableWidgetItem(f'{val}'))
+        # newDf = pd.DataFrame(self.Y_pred),
+        # predictModel = PandasModel(newDf)
 
-        self.MSE.setText(f'{round(mean_squared_error(self.Y_train, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
-        self.RMSE.setText(f'{round(np.sqrt(mean_squared_error(self.Y_train, self.Y_pred)), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
-        self.MAE.setText(f'{round(mean_absolute_error(self.Y_train, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
+
+
+        self.MSE.setText(f'{round(mean_squared_error(self.Y_val_and_test, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
+        self.RMSE.setText(f'{round(np.sqrt(mean_squared_error(self.Y_val_and_test, self.Y_pred)), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
+        self.MAE.setText(f'{round(mean_absolute_error(self.Y_val_and_test, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
 
         print(
             self.testSizeValue.value()/100,'\n',
