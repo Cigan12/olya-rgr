@@ -11,7 +11,7 @@ from keras.layers import Dense
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 from PyQt5.QtGui import QPixmap
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, max_error, mean_squared_log_error
 import numpy as np
 from collections.abc import Iterable
 from pandas_model import PandasModel
@@ -26,8 +26,6 @@ class MainWindow(QWidget, From_Main):
         QWidget.__init__(self)
         self.setupUi(self)
 
-    
-        
         self.activation_ComboBox.addItems(["relu", "sigmoid", "softmax"])#селект
         self.activation_ComboBox_2.addItems(["relu", "sigmoid", "softmax"])#селект
         self.activation_ComboBox_3.addItems(["relu", "sigmoid", "softmax"])#селект
@@ -66,10 +64,13 @@ class MainWindow(QWidget, From_Main):
             print(self.Y_pred)
         
             rowPosition = self.predictedTable.rowCount()
+            self.predictedTable.setHorizontalHeaderLabels(["Predicted", self.trainColumn.currentText()])
             for idx, val in enumerate(self.Y_pred):
-                print(idx, val)
-                self.predictedTable.insertRow(rowPosition+idx)
-                self.predictedTable.setItem(rowPosition+idx , 0 ,QTableWidgetItem(f'{val}'))
+                self.predictedTable.insertRow(0+idx)
+                self.predictedTable.setItem(0+idx , 0 ,QTableWidgetItem(f'{val}'))
+            for idx, val in enumerate(self.Y_val_and_test):
+                self.predictedTable.insertRow(0+idx)
+                self.predictedTable.setItem(0+idx , 1 ,QTableWidgetItem(f'{val}'))
         else: self.notRandomForest()
     
     def notRandomForest(self): 
@@ -158,13 +159,15 @@ class MainWindow(QWidget, From_Main):
         self.model.evaluate(self.X_train, self.Y_train)
         self.Y_pred = self.model.predict(self.X_val_and_test)
         self.Y_pred = self.Y_pred.flatten()
-        print(self.Y_pred)
     
-        rowPosition = self.predictedTable.rowCount()
+        self.predictedTable.setRowCount(self.Y_pred.size + 1)
+        self.predictedTable.setColumnCount(2)  
+        self.predictedTable.setItem(0 , 0 ,QTableWidgetItem(f'Predict'))
+        self.predictedTable.setItem(0 , 1 ,QTableWidgetItem(f'{self.trainColumn.currentText()}'))
         for idx, val in enumerate(self.Y_pred):
-            print(idx, val)
-            self.predictedTable.insertRow(rowPosition+idx)
-            self.predictedTable.setItem(rowPosition+idx , 0 ,QTableWidgetItem(f'{val}'))
+            self.predictedTable.setItem(1+idx , 0 ,QTableWidgetItem(f'{round(float(val), 2)}'))
+        for idx, val in enumerate(self.Y_val_and_test):
+            self.predictedTable.setItem(1+idx , 1 ,QTableWidgetItem(f'{val}'))
         # newDf = pd.DataFrame(self.Y_pred),
         # predictModel = PandasModel(newDf)
 
@@ -173,6 +176,8 @@ class MainWindow(QWidget, From_Main):
         self.MSE.setText(f'{round(mean_squared_error(self.Y_val_and_test, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
         self.RMSE.setText(f'{round(np.sqrt(mean_squared_error(self.Y_val_and_test, self.Y_pred)), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
         self.MAE.setText(f'{round(mean_absolute_error(self.Y_val_and_test, self.Y_pred), 2) if self.neuronsNumberOutputLayer_SpinBox.value() == 1 else 0}')
+        self.maxError.setText(f'{round(max_error(self.Y_val_and_test, self.Y_pred), 2)}')
+        self.msle.setText(f'{round(mean_squared_log_error(self.Y_val_and_test, self.Y_pred), 2)}')
 
         print(
             self.testSizeValue.value()/100,'\n',
